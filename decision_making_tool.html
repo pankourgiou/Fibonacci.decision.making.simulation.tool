@@ -1,0 +1,1387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Fibonacci of Change — Decision Simulation</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,600&family=Space+Mono:wght@400;700&family=Inter:wght@300;400;500;600&display=swap');
+
+:root {
+  --bg:       #08090a;
+  --surf:     #0f1214;
+  --surf2:    #151a1d;
+  --border:   #1c2428;
+  --border2:  #263035;
+  --gold:     #d4a843;
+  --gold2:    #f0c96a;
+  --gold-dim: #6b4f18;
+  --teal:     #2dd4bf;
+  --teal-dim: #134e4a;
+  --text:     #e2eaec;
+  --muted:    #5a7178;
+  --muted2:   #8a9fa6;
+  --danger:   #ef4444;
+  --phi: 1.618;
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-weight: 300;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ═══ SPIRAL HEADER ═══ */
+#hero {
+  position: relative;
+  width: 100%;
+  height: 420px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+#spiral-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hero-text {
+  position: relative;
+  z-index: 2;
+  padding: 0 3rem;
+  max-width: 580px;
+}
+
+.eyebrow {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.25em;
+  color: var(--gold);
+  text-transform: uppercase;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.eyebrow::before {
+  content: '';
+  width: 24px;
+  height: 1px;
+  background: var(--gold);
+}
+
+h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(2rem, 4.5vw, 3.8rem);
+  line-height: 1.08;
+  font-weight: 700;
+  margin-bottom: 0.8rem;
+}
+
+h1 em {
+  font-style: italic;
+  font-weight: 400;
+  color: var(--gold);
+}
+
+.tagline {
+  font-size: 0.88rem;
+  color: var(--muted2);
+  line-height: 1.7;
+  max-width: 460px;
+}
+
+/* ═══ SHELL ═══ */
+.shell {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 0 1.5rem 5rem;
+}
+
+/* ═══ SEQUENCE TRACKER ═══ */
+.sequence-track {
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+  padding: 1.5rem 0 2rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  position: relative;
+}
+
+.sequence-track::after {
+  content: '';
+  position: absolute;
+  bottom: 2rem;
+  left: 0; right: 0;
+  height: 1px;
+  background: var(--border);
+  z-index: 0;
+}
+
+.seq-node {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+  transition: all 0.4s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+.seq-bar {
+  width: 26px;
+  background: var(--border);
+  border-radius: 2px 2px 0 0;
+  transition: height 0.6s cubic-bezier(0.34,1.56,0.64,1), background 0.4s;
+  min-height: 4px;
+}
+
+.seq-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--border2);
+  border: 1.5px solid var(--border2);
+  margin-top: 0;
+  transition: all 0.4s;
+}
+
+.seq-num {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.45rem;
+  color: var(--muted);
+  margin-top: 0.35rem;
+  letter-spacing: 0.05em;
+}
+
+.seq-node.done .seq-bar   { background: var(--teal-dim); }
+.seq-node.done .seq-dot   { background: var(--teal); border-color: var(--teal); }
+.seq-node.active .seq-bar { background: linear-gradient(to top, var(--gold-dim), var(--gold)); }
+.seq-node.active .seq-dot { background: var(--gold); border-color: var(--gold2); box-shadow: 0 0 10px var(--gold); }
+.seq-node.active .seq-num { color: var(--gold); }
+
+.seq-gap { width: 12px; flex-shrink: 0; }
+
+/* ═══ MOMENTUM RIBBON ═══ */
+.momentum-ribbon {
+  background: var(--surf);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1.4rem 1.8rem;
+  margin-bottom: 1.6rem;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 1.4rem;
+}
+
+.mom-left { text-align: left; }
+
+.mom-score {
+  font-family: 'Playfair Display', serif;
+  font-size: 2.6rem;
+  color: var(--gold);
+  line-height: 1;
+  font-weight: 700;
+}
+
+.mom-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.52rem;
+  letter-spacing: 0.15em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-top: 0.2rem;
+}
+
+.mom-track {
+  flex: 1;
+  height: 5px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+
+.mom-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--teal-dim) 0%, var(--teal) 50%, var(--gold) 80%, var(--gold2) 100%);
+  transition: width 0.9s cubic-bezier(0.34,1.56,0.64,1);
+  width: 0%;
+}
+
+.mom-right {
+  text-align: right;
+}
+
+.mom-pct {
+  font-family: 'Space Mono', monospace;
+  font-size: 1rem;
+  color: var(--teal);
+}
+
+.mom-desc {
+  font-size: 0.7rem;
+  color: var(--muted);
+  line-height: 1.4;
+  max-width: 100px;
+  margin-top: 0.2rem;
+}
+
+@media(max-width:600px){
+  .momentum-ribbon{grid-template-columns:1fr;gap:0.8rem}
+  .mom-right{text-align:left}
+  .mom-desc{max-width:none}
+}
+
+/* ═══ INSIGHT FLASH ═══ */
+.insight-flash {
+  background: linear-gradient(135deg, rgba(212,168,67,0.08), rgba(45,212,191,0.04));
+  border: 1px solid var(--gold-dim);
+  border-left: 3px solid var(--gold);
+  border-radius: 4px;
+  padding: 0.85rem 1.2rem;
+  margin-bottom: 1.4rem;
+  font-size: 0.8rem;
+  color: var(--muted2);
+  line-height: 1.65;
+  display: none;
+  animation: slideIn 0.35s ease;
+}
+
+.insight-flash.on { display: block; }
+.insight-flash strong { color: var(--gold2); font-weight: 500; }
+
+@keyframes slideIn { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:none} }
+
+/* ═══ HISTORY ═══ */
+.history-wrap {
+  margin-bottom: 1.4rem;
+}
+
+.hist-row {
+  display: grid;
+  grid-template-columns: 60px 1fr 44px;
+  gap: 0.8rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--border);
+  align-items: start;
+  animation: fadeUp 0.35s ease both;
+}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+.hr-fib {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.55rem;
+  color: var(--gold-dim);
+  line-height: 1.6;
+}
+
+.hr-q {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-bottom: 0.18rem;
+  line-height: 1.4;
+}
+
+.hr-ans {
+  font-size: 0.78rem;
+  color: var(--teal);
+  font-weight: 500;
+}
+
+.hr-wt {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--gold);
+  text-align: right;
+  padding-top: 0.15rem;
+}
+
+/* ═══ DECISION CARD ═══ */
+.d-card {
+  background: var(--surf);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 2.2rem 2.4rem;
+  margin-bottom: 1.4rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.d-card::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 4px; height: 100%;
+  background: linear-gradient(to bottom, var(--gold2), var(--gold));
+  border-radius: 6px 0 0 6px;
+}
+
+.d-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.65rem;
+}
+
+.d-step {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.55rem;
+  letter-spacing: 0.18em;
+  color: var(--gold);
+  text-transform: uppercase;
+}
+
+.d-weight {
+  background: rgba(212,168,67,0.1);
+  border: 1px solid var(--gold-dim);
+  border-radius: 100px;
+  padding: 0.1rem 0.55rem;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.5rem;
+  color: var(--gold);
+}
+
+.d-category {
+  background: rgba(45,212,191,0.08);
+  border: 1px solid var(--teal-dim);
+  border-radius: 100px;
+  padding: 0.1rem 0.55rem;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.5rem;
+  color: var(--teal);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.d-question {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.38rem;
+  line-height: 1.32;
+  margin-bottom: 0.55rem;
+  font-weight: 400;
+}
+
+.d-context {
+  font-size: 0.77rem;
+  color: var(--muted2);
+  line-height: 1.65;
+  margin-bottom: 1.7rem;
+  padding: 0.6rem 0.9rem;
+  background: rgba(255,255,255,0.02);
+  border-radius: 3px;
+  border-left: 2px solid var(--border2);
+}
+
+/* ═══ OPTIONS ═══ */
+.opts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.7rem;
+}
+
+@media(max-width:540px){ .opts{grid-template-columns:1fr} }
+
+.opt {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 1rem 1.1rem;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.2s, background 0.2s, transform 0.15s, box-shadow 0.2s;
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+}
+
+.opt:hover {
+  border-color: rgba(212,168,67,0.5);
+  background: rgba(212,168,67,0.04);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+}
+
+.opt.chosen {
+  border-color: var(--teal);
+  background: rgba(45,212,191,0.05);
+}
+
+.opt.rejected { opacity: 0.25; pointer-events: none; }
+
+.opt-tag {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.14em;
+  color: var(--gold);
+  text-transform: uppercase;
+}
+
+.opt-text {
+  font-size: 0.84rem;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.opt-note {
+  font-size: 0.7rem;
+  color: var(--muted);
+  font-style: italic;
+  line-height: 1.4;
+}
+
+/* impact row */
+.d-impact {
+  margin-top: 1.2rem;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.d-impact-lbl {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.48rem;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+.d-impact-track {
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.d-impact-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold-dim), var(--gold2));
+  border-radius: 2px;
+  transition: width 0.5s ease;
+  width: 0;
+}
+
+.d-impact-num {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.55rem;
+  color: var(--gold);
+  min-width: 30px;
+  text-align: right;
+}
+
+/* ═══ RESULT SCREEN ═══ */
+#result {
+  display: none;
+  animation: fadeUp 0.5s ease both;
+}
+
+#result.on { display: block; }
+
+.result-hero {
+  background: var(--surf);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  padding: 3rem 2.4rem 2.4rem;
+  margin-bottom: 1.4rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.result-spiral-bg {
+  position: absolute;
+  inset: 0;
+  opacity: 0.06;
+  pointer-events: none;
+}
+
+.result-glyph {
+  font-size: 3rem;
+  margin-bottom: 0.8rem;
+  display: block;
+}
+
+.result-profile {
+  font-family: 'Playfair Display', serif;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--gold2);
+  margin-bottom: 0.5rem;
+}
+
+.result-tagline {
+  font-size: 0.88rem;
+  color: var(--muted2);
+  line-height: 1.7;
+  max-width: 500px;
+  margin: 0 auto 2rem;
+}
+
+.result-stats {
+  display: flex;
+  justify-content: center;
+  gap: 3rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.8rem;
+}
+
+.rstat {
+  text-align: center;
+}
+
+.rstat-n {
+  font-family: 'Space Mono', monospace;
+  font-size: 1.7rem;
+  color: var(--gold);
+  display: block;
+  line-height: 1;
+}
+
+.rstat-l {
+  font-size: 0.65rem;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-top: 0.3rem;
+}
+
+.fib-equation {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.68rem;
+  color: var(--gold-dim);
+  letter-spacing: 0.08em;
+  margin-bottom: 0.5rem;
+}
+
+.choice-chain {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ═══ ETHICS CARD ═══ */
+.ethics-card {
+  background: linear-gradient(135deg, rgba(212,168,67,0.07) 0%, rgba(45,212,191,0.04) 100%);
+  border: 1px solid var(--gold-dim);
+  border-radius: 8px;
+  padding: 2.2rem 2.4rem;
+  margin-bottom: 1.4rem;
+  position: relative;
+}
+
+.ethics-eyebrow {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.55rem;
+  letter-spacing: 0.2em;
+  color: var(--gold);
+  text-transform: uppercase;
+  margin-bottom: 1.2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ethics-eyebrow::before { content: '◈'; }
+
+.ethics-quote {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.25rem;
+  font-style: italic;
+  line-height: 1.65;
+  color: var(--text);
+  margin-bottom: 1.4rem;
+  padding-left: 1.4rem;
+  border-left: 2px solid var(--gold);
+  position: relative;
+}
+
+.ethics-analysis {
+  font-size: 0.8rem;
+  color: var(--muted2);
+  line-height: 1.75;
+  margin-bottom: 1.4rem;
+}
+
+.ethics-pillars {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.pillar-tag {
+  background: rgba(212,168,67,0.08);
+  border: 1px solid var(--gold-dim);
+  border-radius: 100px;
+  padding: 0.3rem 0.8rem;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.5rem;
+  color: var(--gold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.ethics-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  padding: 1rem 0;
+}
+
+.ethics-spinner {
+  width: 16px; height: 16px;
+  border: 2px solid var(--border2);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin { to{transform:rotate(360deg)} }
+
+/* ═══ RESTART ═══ */
+.restart-row {
+  text-align: center;
+  padding-top: 0.5rem;
+}
+
+.restart-btn {
+  background: transparent;
+  border: 1px solid var(--gold-dim);
+  color: var(--gold);
+  font-family: 'Space Mono', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding: 0.85rem 2.2rem;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.2s;
+}
+
+.restart-btn:hover {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--bg);
+}
+
+/* ═══ MISC ═══ */
+@media(max-width:600px){
+  #hero{height:320px}
+  .hero-text{padding:0 1.5rem}
+  .d-card{padding:1.5rem 1.2rem}
+  .result-hero{padding:2rem 1.2rem}
+  .ethics-card{padding:1.5rem 1.2rem}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ HERO WITH PROPER FIBONACCI SPIRAL ═══ -->
+<div id="hero">
+  <svg id="spiral-svg" viewBox="0 0 1200 420" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <radialGradient id="bg-grad" cx="70%" cy="50%">
+        <stop offset="0%" stop-color="#1a2428" stop-opacity="0.4"/>
+        <stop offset="100%" stop-color="#08090a" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="spiral-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#d4a843" stop-opacity="0.9"/>
+        <stop offset="40%" stop-color="#d4a843" stop-opacity="0.5"/>
+        <stop offset="100%" stop-color="#2dd4bf" stop-opacity="0.15"/>
+      </linearGradient>
+      <linearGradient id="rect-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#d4a843" stop-opacity="0.12"/>
+        <stop offset="100%" stop-color="#d4a843" stop-opacity="0.02"/>
+      </linearGradient>
+      <filter id="glow">
+        <feGaussianBlur stdDeviation="2.5" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+
+    <!-- Ambient fill -->
+    <rect x="0" y="0" width="1200" height="420" fill="url(#bg-grad)"/>
+
+    <!-- Fibonacci rectangles (precise, nested) -->
+    <!-- We'll draw them from JS after load via a script in the SVG area, 
+         or just compute them precisely here. Center: 820,210. Scale: 1px = 4 -->
+    <!-- F sequence: 1,1,2,3,5,8,13,21,34,55,89 scaled by s=4 -->
+    <!-- Rectangles drawn outward from center -->
+
+    <!-- rect f=1 (4px) at center -->
+    <rect x="820" y="206" width="4" height="4" fill="none" stroke="rgba(212,168,67,0.35)" stroke-width="0.5"/>
+    <!-- rect f=1 left of first -->
+    <rect x="816" y="206" width="4" height="4" fill="none" stroke="rgba(212,168,67,0.35)" stroke-width="0.5"/>
+    <!-- f=2 above both -->
+    <rect x="816" y="198" width="8" height="8" fill="none" stroke="rgba(212,168,67,0.35)" stroke-width="0.5"/>
+    <!-- f=3 right -->
+    <rect x="824" y="198" width="12" height="12" fill="none" stroke="rgba(212,168,67,0.33)" stroke-width="0.6"/>
+    <!-- f=5 below -->
+    <rect x="816" y="210" width="20" height="20" fill="none" stroke="rgba(212,168,67,0.3)" stroke-width="0.7"/>
+    <!-- f=8 left -->
+    <rect x="784" y="198" width="32" height="32" fill="none" stroke="rgba(212,168,67,0.28)" stroke-width="0.8"/>
+    <!-- f=13 above -->
+    <rect x="784" y="146" width="52" height="52" fill="none" stroke="rgba(212,168,67,0.25)" stroke-width="0.9"/>
+    <!-- f=21 right -->
+    <rect x="836" y="146" width="84" height="84" fill="none" stroke="rgba(212,168,67,0.2)" stroke-width="1"/>
+    <!-- f=34 below -->
+    <rect x="784" y="230" width="136" height="136" fill="none" stroke="rgba(212,168,67,0.15)" stroke-width="1.1"/>
+    <!-- f=55 left -->
+    <rect x="564" y="10" width="220" height="356" fill="none" stroke="rgba(212,168,67,0.1)" stroke-width="1.2"/>
+    <!-- f=89 above (goes off screen, partial) -->
+    <rect x="564" y="-346" width="356" height="356" fill="none" stroke="rgba(212,168,67,0.06)" stroke-width="1.3"/>
+
+    <!-- THE GOLDEN SPIRAL — precise quarter-circle arcs -->
+    <g filter="url(#glow)">
+      <path d="
+        M 824 210
+        Q 824 206, 820 206
+        Q 816 206, 816 210
+        Q 816 214, 820 214
+        Q 828 214, 828 206
+        Q 828 198, 820 198
+        Q 816 198, 816 202
+        Q 816 198, 820 198
+        Q 836 198, 836 210
+        Q 836 230, 820 230
+        Q 816 230, 816 228
+        Q 784 230, 784 210
+        Q 784 198, 796 198
+        Q 784 198, 784 146
+        Q 784 136, 794 136
+        Q 784 136, 784 146
+        Q 836 146, 836 146
+        Q 920 146, 920 230
+        Q 920 284, 866 284
+        Q 920 284, 920 230
+        Q 920 10, 784 10
+        Q 700 10, 700 146
+        Q 700 10, 564 10
+        Q 564 366, 920 366
+      "
+        fill="none"
+        stroke="url(#spiral-grad)"
+        stroke-width="1.8"
+        stroke-linecap="round"
+      />
+    </g>
+
+    <!-- Precise golden spiral using proper arc commands -->
+    <g filter="url(#glow)" opacity="0.85">
+      <!-- arc 1: r=4, center (824,210), from bottom to right, 90° -->
+      <path d="M 824 214 A 4 4 0 0 1 820 210" fill="none" stroke="#d4a843" stroke-width="1.5"/>
+      <!-- arc 2: r=4, from right quarter -->
+      <path d="M 820 206 A 4 4 0 0 1 816 210" fill="none" stroke="#d4a843" stroke-width="1.5"/>
+      <!-- arc 3: r=8 -->
+      <path d="M 816 210 A 8 8 0 0 1 824 198" fill="none" stroke="#d4a843" stroke-width="1.5"/>
+      <!-- arc 4: r=12 -->
+      <path d="M 824 198 A 12 12 0 0 1 836 210" fill="none" stroke="#d4a843" stroke-width="1.5"/>
+      <!-- arc 5: r=20 -->
+      <path d="M 836 210 A 20 20 0 0 1 816 230" fill="none" stroke="#d4a843" stroke-width="1.5" opacity="0.9"/>
+      <!-- arc 6: r=32 -->
+      <path d="M 816 230 A 32 32 0 0 1 784 198" fill="none" stroke="#d4a843" stroke-width="1.5" opacity="0.8"/>
+      <!-- arc 7: r=52 -->
+      <path d="M 784 198 A 52 52 0 0 1 836 146" fill="none" stroke="#d4a843" stroke-width="1.5" opacity="0.7"/>
+      <!-- arc 8: r=84 -->
+      <path d="M 836 146 A 84 84 0 0 1 920 230" fill="none" stroke="#d4a843" stroke-width="1.4" opacity="0.55"/>
+      <!-- arc 9: r=136 -->
+      <path d="M 920 230 A 136 136 0 0 1 784 366" fill="none" stroke="#d4a843" stroke-width="1.3" opacity="0.4"/>
+      <!-- arc 10: r=220 -->
+      <path d="M 784 366 A 220 220 0 0 1 564 146" fill="none" stroke="#d4a843" stroke-width="1.2" opacity="0.25"/>
+      <!-- arc 11: r=356 -->
+      <path d="M 564 146 A 356 356 0 0 1 920 -210" fill="none" stroke="#d4a843" stroke-width="1.1" opacity="0.12"/>
+    </g>
+
+    <!-- Fibonacci dots at arc intersections -->
+    <g>
+      <circle cx="820" cy="214" r="3" fill="#d4a843" opacity="0.9" id="sdot-0"/>
+      <circle cx="820" cy="206" r="3" fill="#d4a843" opacity="0.85" id="sdot-1"/>
+      <circle cx="816" cy="210" r="3.5" fill="#d4a843" opacity="0.8" id="sdot-2"/>
+      <circle cx="824" cy="198" r="4" fill="#d4a843" opacity="0.75" id="sdot-3"/>
+      <circle cx="836" cy="210" r="4.5" fill="#d4a843" opacity="0.65" id="sdot-4"/>
+      <circle cx="816" cy="230" r="5" fill="#2dd4bf" opacity="0.5" id="sdot-5"/>
+      <circle cx="784" cy="198" r="5.5" fill="#2dd4bf" opacity="0.4" id="sdot-6"/>
+      <circle cx="836" cy="146" r="6" fill="#2dd4bf" opacity="0.3" id="sdot-7"/>
+      <circle cx="920" cy="230" r="6.5" fill="#2dd4bf" opacity="0.2" id="sdot-8"/>
+      <circle cx="784" cy="366" r="7" fill="#2dd4bf" opacity="0.15" id="sdot-9"/>
+      <circle cx="564" cy="146" r="7.5" fill="#2dd4bf" opacity="0.1" id="sdot-10"/>
+    </g>
+
+    <!-- phi label -->
+    <text x="930" y="240" font-family="Space Mono" font-size="9" fill="#d4a843" opacity="0.4" letter-spacing="2">φ = 1.618…</text>
+    <text x="930" y="254" font-family="Space Mono" font-size="8" fill="#d4a843" opacity="0.25" letter-spacing="1">1·1·2·3·5·8·13·21…</text>
+
+    <!-- subtle grid lines -->
+    <line x1="820" y1="0" x2="820" y2="420" stroke="rgba(212,168,67,0.04)" stroke-width="1"/>
+    <line x1="0" y1="210" x2="1200" y2="210" stroke="rgba(212,168,67,0.04)" stroke-width="1"/>
+  </svg>
+
+  <div class="hero-text">
+    <div class="eyebrow">Fibonacci Change · Decision Simulation</div>
+    <h1>Every choice<br>builds on the<br><em>last two.</em></h1>
+    <p class="tagline">13 decisions. Compounding weights. At the end — a mirror: what your choices reveal about your ethics, shaped into a single living principle.</p>
+  </div>
+</div>
+
+<!-- ═══ MAIN ═══ -->
+<div class="shell">
+
+  <!-- Step sequence -->
+  <div class="sequence-track" id="seq-track"></div>
+
+  <!-- Momentum ribbon -->
+  <div class="momentum-ribbon">
+    <div class="mom-left">
+      <div class="mom-score" id="mom-score">0</div>
+      <div class="mom-label">Momentum</div>
+    </div>
+    <div>
+      <div class="mom-track"><div class="mom-fill" id="mom-fill"></div></div>
+    </div>
+    <div class="mom-right">
+      <div class="mom-pct" id="mom-pct">0%</div>
+      <div class="mom-desc" id="mom-desc">Begin the sequence</div>
+    </div>
+  </div>
+
+  <!-- Insight -->
+  <div class="insight-flash" id="insight"></div>
+
+  <!-- History -->
+  <div class="history-wrap" id="history"></div>
+
+  <!-- Active card -->
+  <div id="deck"></div>
+
+  <!-- Result -->
+  <div id="result">
+    <div class="result-hero">
+      <svg class="result-spiral-bg" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+        <path d="M200 150 A4 4 0 0 1 196 150 A8 8 0 0 1 204 142 A12 12 0 0 1 216 154 A20 20 0 0 1 196 174 A32 32 0 0 1 164 142 A52 52 0 0 1 216 90 A84 84 0 0 1 300 174 A136 136 0 0 1 164 310" fill="none" stroke="#d4a843" stroke-width="2" opacity="0.6"/>
+      </svg>
+      <span class="result-glyph" id="res-glyph">◎</span>
+      <div class="result-profile" id="res-profile"></div>
+      <div class="result-tagline" id="res-tagline"></div>
+      <div class="result-stats" id="res-stats"></div>
+      <div class="fib-equation" id="res-eq"></div>
+      <div class="choice-chain" id="res-chain"></div>
+    </div>
+
+    <!-- Ethics card -->
+    <div class="ethics-card" id="ethics-card">
+      <div class="ethics-eyebrow">Your Ethical Signature — Generated from Your Decisions</div>
+      <div id="ethics-content">
+        <div class="ethics-loading">
+          <div class="ethics-spinner"></div>
+          Deriving your ethical pattern from the sequence…
+        </div>
+      </div>
+    </div>
+
+    <div class="restart-row">
+      <button class="restart-btn" onclick="init()">↺ &nbsp; Run a new sequence</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ══════════════════════════════════
+// FIBONACCI
+// ══════════════════════════════════
+function fibSeq(n){const f=[1,1];for(let i=2;i<n;i++)f.push(f[i-1]+f[i-2]);return f;}
+const FIB = fibSeq(16); // 1,1,2,3,5,8,13,21,34,55,89,144,233,...
+const MAX_STEPS = 13;
+const MAX_MOMENTUM = FIB.slice(0,MAX_STEPS).reduce((a,b)=>a+b,0);
+
+// ══════════════════════════════════
+// DECISIONS BANK (13 scenarios)
+// ══════════════════════════════════
+const DECISIONS = [
+{
+  category: "Leadership",
+  q: "A critical project is failing. Your team looks to you. What do you do?",
+  context: "The first step carries weight 1 — the smallest unit in the sequence. But every spiral begins with a single point.",
+  opts: [
+    {tag:"Take Control", text:"Step in directly and rebuild the plan yourself", note:"Decisive, but signals distrust in the team", ethics:"control"},
+    {tag:"Empower", text:"Give the team autonomy to solve it, with your support", note:"Builds ownership and long-term resilience", ethics:"autonomy"},
+    {tag:"Escalate", text:"Bring it to leadership before it gets worse", note:"Transparent, but may undermine team confidence", ethics:"transparency"},
+    {tag:"Absorb", text:"Quietly take on the burden so the team isn't blamed", note:"Protective, but unsustainable and hidden", ethics:"sacrifice"}
+  ]
+},
+{
+  category: "Integrity",
+  q: "You discover a colleague has taken credit for work that wasn't theirs. Do you…",
+  context: "Step 2: still weight 1, but now paired with your first choice. Two decisions define the angle of your spiral.",
+  opts: [
+    {tag:"Confront", text:"Speak to the colleague directly and privately", note:"Respectful, but requires courage", ethics:"honesty"},
+    {tag:"Report", text:"Raise it formally through the right channels", note:"Principled, but can feel like escalation", ethics:"justice"},
+    {tag:"Witness", text:"Acknowledge the real author's work publicly without naming the issue", note:"Indirect, but protective", ethics:"recognition"},
+    {tag:"Ignore", text:"Stay out of it — it's not your conflict to own", note:"Safe, but complicit in injustice", ethics:"avoidance"}
+  ]
+},
+{
+  category: "Fairness",
+  q: "Resources must be cut. Not everyone can be protected. How do you decide?",
+  context: "Weight ×2. Your first pair of decisions now compounds into this one. The sequence has found its direction.",
+  opts: [
+    {tag:"Protect Weakest", text:"Shield those most vulnerable to the cut, regardless of output", note:"Equitable, may frustrate high performers", ethics:"equity"},
+    {tag:"Protect Merit", text:"Retain based on proven contribution and impact", note:"Efficient, risks blind spots and bias", ethics:"meritocracy"},
+    {tag:"Distribute Pain", text:"Share the reduction across everyone equally", note:"Fair in process, not always in outcome", ethics:"equality"},
+    {tag:"Defer to Others", text:"Let the team itself decide through a transparent process", note:"Democratic, but can avoid accountability", ethics:"delegation"}
+  ]
+},
+{
+  category: "Courage",
+  q: "You know a decision being made above you is wrong. What do you do?",
+  context: "Weight ×3. Three Fibonacci steps in — your choices carry three times the force of that first moment.",
+  opts: [
+    {tag:"Speak Up", text:"Voice your objection clearly, even if it costs you", note:"Courageous, honest, risks isolation", ethics:"dissent"},
+    {tag:"Build Coalition", text:"Quietly gather others who agree before raising the issue", note:"Strategic, potentially slower, stronger", ethics:"solidarity"},
+    {tag:"Comply and Document", text:"Follow the decision but create a record of your concerns", note:"Cautious, preserves integrity subtly", ethics:"prudence"},
+    {tag:"Withdraw", text:"Step back from the process to avoid complicity", note:"Clean conscience, but abandons influence", ethics:"withdrawal"}
+  ]
+},
+{
+  category: "Trust",
+  q: "Someone shares confidential information with you that could help your team. Do you…",
+  context: "Weight ×5. Five times the first step. A single breach of trust multiplies through every relationship it touches.",
+  opts: [
+    {tag:"Honor It", text:"Keep the confidence completely — the relationship matters more", note:"Trustworthy, but leaves your team disadvantaged", ethics:"loyalty"},
+    {tag:"Use It Wisely", text:"Act on it without revealing the source", note:"Pragmatic, ethically murky", ethics:"pragmatism"},
+    {tag:"Disclose", text:"Tell your team where the information came from", note:"Transparent, breaks the original confidence", ethics:"openness"},
+    {tag:"Refuse It", text:"Ask not to be told confidential things you can't share", note:"Principled, protects your integrity", ethics:"boundaries"}
+  ]
+},
+{
+  category: "Accountability",
+  q: "Your team makes a serious error. Leadership asks what happened.",
+  context: "Weight ×8. Eight times the origin. Accountability is the hinge on which every organizational culture turns.",
+  opts: [
+    {tag:"Own It", text:"Take full responsibility publicly, even for the team's actions", note:"Noble, but can distort the record", ethics:"responsibility"},
+    {tag:"Explain", text:"Give a full honest account, including individual roles", note:"Accurate, but exposes others", ethics:"truth"},
+    {tag:"Protect", text:"Shield the individuals involved from consequence", note:"Loyal, risks enabling repetition", ethics:"protection"},
+    {tag:"Reform", text:"Shift focus immediately to what changes — not who failed", note:"Forward-looking, can feel like avoidance", ethics:"growth"}
+  ]
+},
+{
+  category: "Inclusion",
+  q: "A talented person from an underrepresented group is overlooked for a high-visibility role. You notice.",
+  context: "Weight ×13. Thirteen times the first step. Systems perpetuate themselves quietly — noticing is where change begins.",
+  opts: [
+    {tag:"Advocate", text:"Actively champion them in rooms they aren't in", note:"Powerful, but speaks for them without asking", ethics:"advocacy"},
+    {tag:"Enable", text:"Create visibility for them directly — give them the platform", note:"Empowering, shifts the structure", ethics:"opportunity"},
+    {tag:"Question", text:"Raise the bias in the selection process openly", note:"Systemic, risks being dismissed as ideological", ethics:"systemic_change"},
+    {tag:"Ask", text:"Speak with the person first — find out what they want", note:"Respectful, honors their agency", ethics:"agency"}
+  ]
+},
+{
+  category: "Harm Prevention",
+  q: "A decision that will benefit most people will cause real harm to a few. Do you support it?",
+  context: "Weight ×21. The utilitarian trap. The Fibonacci weight here is the sum of the first seven combined.",
+  opts: [
+    {tag:"Support", text:"Approve — the greatest good for the greatest number", note:"Consequentialist, but the few still suffer", ethics:"utilitarian"},
+    {tag:"Oppose", text:"Reject — no collective benefit justifies harm to individuals", note:"Rights-based, but sometimes impractical", ethics:"deontological"},
+    {tag:"Modify", text:"Support only if the harms to the few are actively mitigated", note:"Balanced, requires more work and compromise", ethics:"restorative"},
+    {tag:"Abstain", text:"Remove yourself from the vote — the dilemma is too stark", note:"Principled refusal, but abandons influence", ethics:"nonparticipation"}
+  ]
+},
+{
+  category: "Long-term Thinking",
+  q: "You can deliver a good result now — or invest time to deliver a great result later. Pressures favor now.",
+  context: "Weight ×34. Thirty-four. The spiral has grown far beyond what the first step could have predicted.",
+  opts: [
+    {tag:"Ship Now", text:"Deliver what you have and iterate from real feedback", note:"Pragmatic, risks entrenching mediocrity", ethics:"pragmatism"},
+    {tag:"Hold", text:"Push back on the timeline — quality matters more", note:"Principled, requires courage against pressure", ethics:"craft"},
+    {tag:"Negotiate", text:"Find a middle scope — ship less, but ship it right", note:"Diplomatic, earns trust over time", ethics:"negotiation"},
+    {tag:"Reframe", text:"Challenge whether the deadline itself is the right goal", note:"Systemic thinking, often resisted", ethics:"systemic_questioning"}
+  ]
+},
+{
+  category: "Transparency",
+  q: "Bad news is spreading inside your organization. Leadership wants to manage the narrative. You disagree.",
+  context: "Weight ×55. Fifty-five. Truth management compounds like debt — the cost of concealment doubles every cycle.",
+  opts: [
+    {tag:"Disclose", text:"Push for full transparency, even if it's uncomfortable", note:"Principled, builds long-term trust", ethics:"radical_honesty"},
+    {tag:"Contextualize", text:"Share the truth, but with careful framing and support", note:"Responsible communication, not spin", ethics:"responsible_disclosure"},
+    {tag:"Comply", text:"Follow the leadership directive — it's not your call", note:"Deferential, but makes you complicit", ethics:"deference"},
+    {tag:"Resign", text:"Withdraw from the process if you can't endorse the message", note:"Integrity preserved, influence surrendered", ethics:"principled_exit"}
+  ]
+},
+{
+  category: "Power",
+  q: "You have influence others don't. Someone asks you to use it on their behalf. What matters most?",
+  context: "Weight ×89. The spiral is enormous now. Power used well compounds into trust. Used poorly, it compounds into resentment.",
+  opts: [
+    {tag:"Use It", text:"Deploy your influence freely — that's what it's for", note:"Generous, but power favors those who ask", ethics:"activation"},
+    {tag:"Audit First", text:"Consider who benefits, who doesn't, before acting", note:"Deliberate, may slow things down", ethics:"equity_lens"},
+    {tag:"Build Others", text:"Use this moment to grow their power, not just solve this ask", note:"Developmental, takes more effort", ethics:"empowerment"},
+    {tag:"Question Power", text:"Examine why you have this power and whether you should", note:"Deeply structural, rarely popular", ethics:"power_questioning"}
+  ]
+},
+{
+  category: "Legacy",
+  q: "You're leaving a role. You can shape what comes after you. What do you prioritize?",
+  context: "Weight ×144. One hundred and forty-four. The decisions you've made this whole sequence now define your legacy choice.",
+  opts: [
+    {tag:"Succession", text:"Identify and prepare the right person to carry the work forward", note:"Selfless, future-focused", ethics:"stewardship"},
+    {tag:"Institutional Memory", text:"Document everything so the knowledge outlasts you", note:"Humble, knowledge as a gift", ethics:"knowledge_sharing"},
+    {tag:"Culture", text:"Prioritize the values and norms — people can learn the rest", note:"Intangible but durable", ethics:"culture_building"},
+    {tag:"Clean Break", text:"Leave space for what comes next to be different from you", note:"Rare and wise — resists ego", ethics:"non_attachment"}
+  ]
+},
+{
+  category: "Reflection",
+  q: "Looking at the full sequence of decisions you've made: what do you do with what you've learned?",
+  context: "Weight ×233. The final Fibonacci number. The entire spiral has led here. This is the compounded weight of every choice.",
+  opts: [
+    {tag:"Integrate", text:"Let the learning change how you act — silently, from within", note:"Authentic, private, enduring", ethics:"internal_growth"},
+    {tag:"Share", text:"Tell the story — let others learn from this sequence", note:"Generous, builds collective wisdom", ethics:"generosity"},
+    {tag:"Teach", text:"Build this learning into how you develop others", note:"Multiplies impact through future decisions", ethics:"pedagogy"},
+    {tag:"Sit With It", text:"Resist the urge to act — sometimes understanding is enough", note:"Patient, rare, deeply honest", ethics:"contemplation"}
+  ]
+}
+];
+
+// ══════════════════════════════════
+// STATE
+// ══════════════════════════════════
+let state = {};
+
+function init() {
+  state = { step: 0, choices: [], momentum: 0 };
+  document.getElementById('history').innerHTML = '';
+  document.getElementById('result').classList.remove('on');
+  document.getElementById('insight').classList.remove('on');
+  document.getElementById('deck').innerHTML = '';
+  buildSeqTrack();
+  updateMom();
+  renderCard();
+}
+
+// ── Sequence track ──
+function buildSeqTrack() {
+  const el = document.getElementById('seq-track');
+  el.innerHTML = '';
+  for (let i = 0; i < MAX_STEPS; i++) {
+    if (i > 0) {
+      const gap = document.createElement('div');
+      gap.className = 'seq-gap';
+      el.appendChild(gap);
+    }
+    const nd = document.createElement('div');
+    nd.className = 'seq-node' + (i === 0 ? ' active' : '');
+    nd.id = `sn-${i}`;
+    const maxH = 60;
+    const h = Math.max(4, Math.round((FIB[i] / FIB[MAX_STEPS-1]) * maxH));
+    nd.innerHTML = `
+      <div class="seq-bar" style="height:${h}px"></div>
+      <div class="seq-dot"></div>
+      <div class="seq-num">${FIB[i]}</div>
+    `;
+    el.appendChild(nd);
+  }
+}
+
+function updateSeqTrack() {
+  for (let i = 0; i < MAX_STEPS; i++) {
+    const nd = document.getElementById(`sn-${i}`);
+    if (!nd) continue;
+    nd.classList.remove('active','done');
+    if (i < state.step) nd.classList.add('done');
+    else if (i === state.step) nd.classList.add('active');
+  }
+}
+
+// ── Momentum ──
+function updateMom() {
+  const pct = Math.min(100, Math.round((state.momentum / MAX_MOMENTUM) * 100));
+  document.getElementById('mom-score').textContent = state.momentum;
+  document.getElementById('mom-fill').style.width = pct + '%';
+  document.getElementById('mom-pct').textContent = pct + '%';
+  const descs = [
+    'Begin the sequence',
+    'The spiral stirs',
+    'Compounding begins',
+    'Pattern is forming',
+    'Clear direction now',
+    'Strong momentum',
+    'High compounding',
+    'Decisions echo forward',
+    'Critical mass near',
+    'The spiral is open',
+    'Fully self-sustaining'
+  ];
+  const di = Math.floor(pct / 10);
+  document.getElementById('mom-desc').textContent = descs[Math.min(di, descs.length - 1)];
+}
+
+// ── Insight ──
+const INSIGHTS = [
+  `Weight <strong>1</strong> — the tiniest seed. Almost nothing. But this is where the Fibonacci spiral begins: a single intentional act.`,
+  `Two steps, both weight <strong>1</strong>. Together they define the initial direction of your spiral. The angle is set.`,
+  `Weight <strong>2</strong> — the sum of your first two. This is where compounding becomes visible for the first time.`,
+  `Weight <strong>3</strong>. Three times the beginning. Every choice you make now carries the echo of every one before it.`,
+  `Weight <strong>5</strong>. A single relationship is five times as affected as step one suggested. The spiral is real.`,
+  `Weight <strong>8</strong>. The organization bends under this — whether or not anyone names it yet.`,
+  `Weight <strong>13</strong>. Systems are the slowest to change and the most powerful once in motion. You just touched one.`,
+  `Weight <strong>21</strong>. The utilitarian calculus: the sum of seven decisions in a single moment. This is where ethics becomes costly.`,
+  `Weight <strong>34</strong>. Long-term thinking is the rarest form of courage. You just chose where you stand on that.`,
+  `Weight <strong>55</strong>. Truth, once suppressed, compounds like a debt. Your relationship to transparency defines your culture.`,
+  `Weight <strong>89</strong>. Power is the most dangerous Fibonacci moment — it amplifies whatever it touches, including you.`,
+  `Weight <strong>144</strong>. Legacy isn't what you leave. It's what you prepare in others. This decision reflects everything before it.`,
+  `Weight <strong>233</strong>. The final number. The sum of the full sequence lives here. What you choose now is the seal on your pattern.`
+];
+
+function showInsight(step) {
+  const el = document.getElementById('insight');
+  el.innerHTML = INSIGHTS[step];
+  el.classList.add('on');
+}
+
+// ── Render card ──
+function renderCard() {
+  const area = document.getElementById('deck');
+  if (state.step >= MAX_STEPS) { area.innerHTML = ''; showResult(); return; }
+  updateSeqTrack();
+  const d = DECISIONS[state.step];
+  const wt = FIB[state.step];
+  const card = document.createElement('div');
+  card.className = 'd-card';
+  card.innerHTML = `
+    <div class="d-meta">
+      <span class="d-step">Step ${state.step + 1} of ${MAX_STEPS}</span>
+      <span class="d-weight">Weight × ${wt}</span>
+      <span class="d-category">${d.category}</span>
+    </div>
+    <div class="d-question">${d.q}</div>
+    <div class="d-context">${d.context}</div>
+    <div class="opts" id="opts">
+      ${d.opts.map((o, i) => `
+        <button class="opt" id="opt-${i}" onclick="choose(${i})">
+          <span class="opt-tag">${o.tag}</span>
+          <span class="opt-text">${o.text}</span>
+          <span class="opt-note">${o.note}</span>
+        </button>`).join('')}
+    </div>
+    <div class="d-impact">
+      <span class="d-impact-lbl">IMPACT PREVIEW</span>
+      <div class="d-impact-track"><div class="d-impact-fill" id="imp-fill"></div></div>
+      <span class="d-impact-num" id="imp-num">—</span>
+    </div>
+  `;
+  area.innerHTML = '';
+  area.appendChild(card);
+
+  d.opts.forEach((_,i) => {
+    const btn = document.getElementById(`opt-${i}`);
+    btn.addEventListener('mouseenter', () => {
+      const pct = Math.min(92, 20 + Math.round((wt / FIB[MAX_STEPS-1]) * 80) + i * 2);
+      document.getElementById('imp-fill').style.width = pct + '%';
+      document.getElementById('imp-num').textContent = '+' + wt;
+    });
+    btn.addEventListener('mouseleave', () => {
+      document.getElementById('imp-fill').style.width = '0%';
+      document.getElementById('imp-num').textContent = '—';
+    });
+  });
+}
+
+// ── Choose ──
+function choose(idx) {
+  const d = DECISIONS[state.step];
+  const opt = d.opts[idx];
+  const wt = FIB[state.step];
+
+  d.opts.forEach((_,i) => {
+    const b = document.getElementById(`opt-${i}`);
+    b.classList.add(i === idx ? 'chosen' : 'rejected');
+    b.disabled = true;
+  });
+
+  document.getElementById('imp-fill').style.width = '88%';
+  document.getElementById('imp-num').textContent = '+' + wt;
+
+  state.choices.push({ step: state.step, d, opt, weight: wt });
+  state.momentum += wt;
+  updateMom();
+  showInsight(state.step);
+
+  setTimeout(() => {
+    addHistory(state.step, d, opt, wt);
+    state.step++;
+    updateSeqTrack();
+    setTimeout(renderCard, 380);
+  }, 650);
+}
+
+// ── History ──
+function addHistory(step, d, opt, wt) {
+  const wrap = document.getElementById('history');
+  const row = document.createElement('div');
+  row.className = 'hist-row';
+  row.style.animationDelay = '0.05s';
+  row.innerHTML = `
+    <div class="hr-fib">F(${step+1})<br>${FIB[step]}</div>
+    <div>
+      <div class="hr-q">${d.q}</div>
+      <div class="hr-ans">→ ${opt.tag}: ${opt.text}</div>
+    </div>
+    <div class="hr-wt">×${wt}</div>
+  `;
+  wrap.appendChild(row);
+}
+
+// ── RESULT ──
+function showResult() {
+  document.getElementById('insight').classList.remove('on');
+  const pct = Math.min(100, Math.round((state.momentum / MAX_MOMENTUM) * 100));
+
+  const profiles = [
+    {min:0,  max:22, glyph:'○', title:'The Anchored Mind',   tagline:'You chose consistency and caution at nearly every turn. The Fibonacci spiral formed, but stayed tight and close to its origin. Stability is its own kind of wisdom.'},
+    {min:23, max:44, glyph:'◔', title:'The Measured Arc',    tagline:'You moved thoughtfully — neither pulling back nor rushing forward. Your sequence built a sustainable curve. Not the widest spiral, but a coherent one.'},
+    {min:45, max:66, glyph:'◑', title:'The Expanding Form',  tagline:'Your decisions compounded with intention. The spiral opened steadily. Each choice amplified the last without losing control of the shape.'},
+    {min:67, max:83, glyph:'◕', title:'The Open Spiral',     tagline:'Strong, cascading momentum. Your choices leaned toward change, advocacy, and confrontation with reality. The spiral is wide and still moving.'},
+    {min:84, max:100,glyph:'●', title:'The Full Fibonacci',  tagline:'Maximum compounding. Every decision amplified the one before it. The spiral is self-sustaining now — your pattern of change will change the change itself.'}
+  ];
+
+  const prof = profiles.find(p => pct >= p.min && pct <= p.max) || profiles[2];
+  const eq = state.choices.map(c=>c.weight).join(' + ') + ' = ' + state.momentum;
+  const chain = state.choices.map(c=>c.opt.tag).join(' → ');
+
+  document.getElementById('res-glyph').textContent = prof.glyph;
+  document.getElementById('res-profile').textContent = prof.title;
+  document.getElementById('res-tagline').textContent = prof.tagline;
+  document.getElementById('res-eq').textContent = eq;
+  document.getElementById('res-chain').textContent = chain;
+  document.getElementById('res-stats').innerHTML = `
+    <div class="rstat"><span class="rstat-n">${state.momentum}</span><span class="rstat-l">Total Weight</span></div>
+    <div class="rstat"><span class="rstat-n">${pct}%</span><span class="rstat-l">Momentum Index</span></div>
+    <div class="rstat"><span class="rstat-n">${MAX_STEPS}</span><span class="rstat-l">Decisions</span></div>
+    <div class="rstat"><span class="rstat-n">${FIB[MAX_STEPS-1]}</span><span class="rstat-l">Final Fib Weight</span></div>
+  `;
+
+  document.getElementById('result').classList.add('on');
+  document.getElementById('result').scrollIntoView({ behavior:'smooth', block:'start' });
+
+  generateEthicsQuote();
+}
+
+// ══════════════════════════════════
+// ETHICS QUOTE via Claude API
+// ══════════════════════════════════
+async function generateEthicsQuote() {
+  const choiceSummary = state.choices.map((c, i) => {
+    return `Step ${i+1} [${c.d.category}] — "${c.d.q}" → Chose: "${c.opt.tag}": ${c.opt.text} (ethical orientation: ${c.opt.ethics})`;
+  }).join('\n');
+
+  const pct = Math.min(100, Math.round((state.momentum / MAX_MOMENTUM) * 100));
+
+  const prompt = `You are a philosopher and ethicist. A person just completed a 13-step decision simulation based on the Fibonacci sequence, where each decision carries compounding weight. Here are all their decisions, in order:
+
+${choiceSummary}
+
+Their total momentum score was ${state.momentum} out of ${MAX_MOMENTUM} possible (${pct}%).
+
+Based on the pattern of their choices — the ethical orientations they leaned toward, the tensions they navigated, the values they revealed — do three things:
+
+1. Write a single original philosophical quote (2–3 sentences) that captures the ethical principle their choices embody. Write it as if it is their own hard-won wisdom — not a famous quote, but something that feels like it emerged from living through these exact decisions. Make it specific to their actual choices, not generic. It should be profound, poetic, and personal.
+
+2. Write a 3–4 sentence analysis of their ethical pattern: what values dominated, what tensions appeared, what kind of decision-maker they reveal themselves to be.
+
+3. Identify 3–4 ethical pillars that characterize their approach (e.g. "Relational Courage", "Systemic Honesty", "Protective Realism" — be creative and specific to their actual choices).
+
+Format your response as JSON with keys: "quote", "analysis", "pillars" (array of strings). Nothing else — just valid JSON, no markdown.`;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await resp.json();
+    const raw = data.content?.[0]?.text || '';
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+
+    document.getElementById('ethics-content').innerHTML = `
+      <div class="ethics-quote">${parsed.quote}</div>
+      <div class="ethics-analysis">${parsed.analysis}</div>
+      <div class="ethics-pillars">
+        ${(parsed.pillars || []).map(p => `<span class="pillar-tag">${p}</span>`).join('')}
+      </div>
+    `;
+  } catch(e) {
+    // Fallback: generate locally based on dominant ethics
+    const ethicsCounts = {};
+    state.choices.forEach(c => {
+      const k = c.opt.ethics;
+      ethicsCounts[k] = (ethicsCounts[k] || 0) + c.weight;
+    });
+    const top = Object.entries(ethicsCounts).sort((a,b)=>b[1]-a[1]).slice(0,3).map(e=>e[0]);
+
+    const fallbackQuotes = {
+      honesty: "To speak truly when silence would be easier is not merely a virtue — it is the architecture of a world others can trust.",
+      equity: "Justice that does not ask who bears the weight of a decision is not justice — it is the mathematics of the comfortable.",
+      autonomy: "The deepest respect you can give another person is to believe they are capable of bearing the truth of their own situation.",
+      transparency: "What we reveal shapes what others can build. Opacity is not protection — it is the slow corrosion of the structures we depend on.",
+      advocacy: "To speak for those not in the room is not charity. It is the correction of a system that made their absence feel normal.",
+      default: "Every decision you make in full awareness of its cost is a form of integrity. The Fibonacci sequence does not lie about how weight accumulates."
+    };
+
+    const quote = fallbackQuotes[top[0]] || fallbackQuotes.default;
+    document.getElementById('ethics-content').innerHTML = `
+      <div class="ethics-quote">${quote}</div>
+      <div class="ethics-analysis">Your decisions reveal a pattern weighted toward ${top.slice(0,2).join(' and ')}. Across 13 compounding choices, you consistently prioritized these values even when they carried cost — which is the only way to know if a value is real.</div>
+      <div class="ethics-pillars">
+        ${top.map(t => `<span class="pillar-tag">${t.replace(/_/g,' ')}</span>`).join('')}
+        <span class="pillar-tag">Fibonacci Thinker</span>
+      </div>
+    `;
+  }
+}
+
+// ══════════════════════════════════
+// SPIRAL DOT ANIMATION on scroll
+// ══════════════════════════════════
+function pulseDots() {
+  const dots = document.querySelectorAll('[id^="sdot-"]');
+  dots.forEach((d, i) => {
+    const active = i < state.step;
+    d.setAttribute('fill', active ? '#2dd4bf' : '#d4a843');
+    d.setAttribute('opacity', active ? '0.7' : (0.9 - i * 0.07).toFixed(2));
+  });
+}
+
+setInterval(pulseDots, 1200);
+
+// ══════════════════════════════════
+// BOOT
+// ══════════════════════════════════
+init();
+</script>
+</body>
+</html>
